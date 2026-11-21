@@ -48,7 +48,7 @@ export function AddSheet({ kind: initialKind, edit }: { kind: Kind; edit?: Trans
 
   const save = async () => {
     const sign = kind === 'expense' ? -1 : 1;
-    const txLines = kind === 'expense' && split
+    const txLines = split
       ? lines.filter((l) => l.id || l.text).map((l) => ({ envelopeId: l.id, amount: sign * (parseMoney(l.text) ?? 0) }))
       : [{ envelopeId: envId, amount: sign * total }];
     if (split && splitSum !== total) return setError(`Lines add up to ${formatMoney(splitSum)}, not ${formatMoney(total)}.`);
@@ -78,26 +78,27 @@ export function AddSheet({ kind: initialKind, edit }: { kind: Kind; edit?: Trans
             </div>
           )}
           <Field label="Envelope"><EnvelopeSelect value={envId} onChange={setEnvId} filter={notIncome} /></Field>
-          <button className="btn text" onClick={() => { setSplit(true); setLines([{ id: envId, text: amount }, { id: '', text: '' }]); }}>+ Split across envelopes</button>
         </>
       )}
-      {kind === 'expense' && split && (
+      {kind === 'income' && !split && (
+        <>
+          <Field label="Into envelope"><EnvelopeSelect value={envId} onChange={setEnvId} /></Field>
+          <div className="note">Paychecks go to {d.income?.name ?? 'Income'}. Interest can go straight to the envelope that earned it.</div>
+        </>
+      )}
+      {!split && <button className="btn text" onClick={() => { setSplit(true); setLines([{ id: envId, text: amount }, { id: '', text: '' }]); }}>+ Split across envelopes</button>}
+      {split && (
         <>
           {lines.map((l, i) => (
             <div className="splitline" key={i}>
-              <EnvelopeSelect value={l.id} filter={notIncome} onChange={(id) => setLines(lines.map((x, j) => (j === i ? { ...x, id } : x)))} />
+              <EnvelopeSelect value={l.id} filter={kind === 'expense' ? notIncome : undefined} onChange={(id) => setLines(lines.map((x, j) => (j === i ? { ...x, id } : x)))} />
               <input className="inp" inputMode="decimal" placeholder="0.00" value={l.text} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))} />
               {lines.length > 2 && <button className="iconbtn" style={{ width: 32 }} aria-label="Remove line" onClick={() => setLines(lines.filter((_, j) => j !== i))}>×</button>}
             </div>
           ))}
           <button className="btn text" onClick={() => setLines([...lines, { id: '', text: '' }])}>+ Add line</button>
           <div className="note">Lines must add up to the total. Remaining: {formatMoney(total - splitSum)}</div>
-        </>
-      )}
-      {kind === 'income' && (
-        <>
-          <Field label="Into envelope"><EnvelopeSelect value={envId} onChange={setEnvId} /></Field>
-          <div className="note">Paychecks go to {d.income?.name ?? 'Income'}. Interest can go straight to the envelope that earned it.</div>
+          {kind === 'income' && <div className="note">Put any part you will assign later on {d.income?.name ?? 'Income'}.</div>}
         </>
       )}
 
