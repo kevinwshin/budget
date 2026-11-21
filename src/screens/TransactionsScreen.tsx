@@ -17,12 +17,14 @@ export function TransactionsScreen() {
   }
   return (
     <>
-      <div className="appbar"><h1>Transactions</h1></div>
+      <div className="appbar">
+        <h1>Transactions</h1>
+        <select className="inp" style={{ width: 'auto', padding: '6px 8px' }} value={tag} onChange={(e) => setTag(e.target.value)} aria-label="Budget tag">
+          <option value="all">All tags</option>
+          {d.budgetTags.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>
+      </div>
       <div className="content">
-        <div className="chips">
-          <button className={`chip ${tag === 'all' ? 'on' : ''}`} onClick={() => setTag('all')}>All</button>
-          {d.budgetTags.map((b) => <button key={b.id} className={`chip ${tag === b.id ? 'on' : ''}`} onClick={() => setTag(b.id)}>{b.name}</button>)}
-        </div>
         {days.length === 0 && <div className="empty">No transactions.</div>}
         {days.map(([day, txs]) => (
           <div key={day}>
