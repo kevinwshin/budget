@@ -3,6 +3,7 @@ import { useData } from '../data';
 import { useNav } from '../nav';
 import { daysSince } from '../dates';
 import { exportBackup, parseBackup, restoreBackup } from '../backup';
+import { deleteAllData } from '../db';
 import { setSetting } from '../settings';
 import { count } from '../ui';
 import type { EnvelopeLayout, Theme } from '../types';
@@ -21,6 +22,23 @@ export function SettingsScreen() {
       nav.toast(`Export failed: ${(e as Error).message}`, 'error');
     }
   };
+
+  // Three presses: the button, Continue, then Delete everything.
+  const onDeleteAll = () => nav.push({ dialog: {
+    title: 'Delete all data?',
+    body: `This removes every envelope, transaction, tag, and setting on this phone (${count(d.txs.length, 'transaction')}). Export a backup first if you might want it back.`,
+    confirm: 'Continue', danger: true,
+    onConfirm: () => nav.replaceTop({ dialog: {
+      title: 'This cannot be undone',
+      body: 'The app will start over with only an empty Income envelope.',
+      confirm: 'Delete everything', danger: true,
+      onConfirm: async () => {
+        await deleteAllData();
+        nav.pop();
+        nav.toast('All data deleted');
+      },
+    } }),
+  } });
 
   const onFile = async (f: File | undefined) => {
     if (file.current) file.current.value = '';
@@ -83,6 +101,11 @@ export function SettingsScreen() {
         <div className="card">
           <b>Theme</b>
           {seg<Theme>(d.settings.theme, [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], (v) => void setSetting('theme', v))}
+        </div>
+        <div className="card" style={{ marginTop: 24 }}>
+          <b>Delete all data</b>
+          <div className="note">Removes everything on this phone and starts over.</div>
+          <button className="btn danger" onClick={onDeleteAll}>Delete all data</button>
         </div>
       </div>
     </>
