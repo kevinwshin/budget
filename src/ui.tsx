@@ -1,17 +1,61 @@
-import type { ReactNode } from 'react';
+import { useRef, type PointerEvent, type ReactNode } from 'react';
 import { useNav, type Dialog } from './nav';
 import { groupByBudgetTag, useData } from './data';
 import { CURRENCY_SYMBOL, formatMoney } from './money';
 import type { Envelope, Id } from './types';
 
+/** Drag distance, as a share of the sheet's height, past which a release closes the sheet. */
+const DISMISS_SHARE = 0.25;
+/** Downward speed in px/ms that closes the sheet on release even after a short drag. */
+const FLICK_SPEED = 0.5;
+
 export function SheetFrame({ title, children }: { title?: string; children: ReactNode }) {
   const nav = useNav();
+  const sheet = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ startY: number; lastY: number; lastT: number; speed: number } | null>(null);
+  const closing = useRef(false);
+
+  const place = (dy: number, animate: boolean) => {
+    const el = sheet.current;
+    if (!el) return;
+    el.style.transition = animate ? 'transform .18s ease-out' : 'none';
+    el.style.transform = dy > 0 ? `translateY(${dy}px)` : '';
+  };
+  const onDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (closing.current) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { startY: e.clientY, lastY: e.clientY, lastT: e.timeStamp, speed: 0 };
+  };
+  const onMove = (e: PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    const dt = Math.max(1, e.timeStamp - d.lastT);
+    d.speed = (e.clientY - d.lastY) / dt;
+    d.lastY = e.clientY;
+    d.lastT = e.timeStamp;
+    place(Math.max(0, e.clientY - d.startY), false);
+  };
+  const onUp = (e: PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d) return;
+    const dy = Math.max(0, e.clientY - d.startY);
+    const height = sheet.current?.offsetHeight ?? 1;
+    if (dy > height * DISMISS_SHARE || (dy > 24 && d.speed > FLICK_SPEED)) {
+      closing.current = true;
+      place(height, true);
+      setTimeout(() => nav.pop(), 180);
+    } else place(0, true);
+  };
+
   return (
     <>
       <div className="scrim" onClick={() => nav.pop()} />
-      <div className="sheet" role="dialog">
-        <div className="grab" />
-        {title && <h2>{title}</h2>}
+      <div className="sheet" role="dialog" ref={sheet}>
+        <div className="grabzone" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { drag.current = null; place(0, true); }}>
+          <div className="grab" />
+          {title && <h2>{title}</h2>}
+        </div>
         {children}
       </div>
     </>

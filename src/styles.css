@@ -108,6 +108,8 @@ input, select, textarea { font: inherit; color: var(--text); }
 .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 8px 16px calc(20px + env(safe-area-inset-bottom)); z-index: 11; max-height: 92%; overflow-y: auto; animation: rise .2s ease-out; }
 .sheet h2 { font-size: 18px; margin: 0 0 12px; }
 .grab { width: 32px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px auto 12px; }
+/* touch-action none: the browser hands vertical drags here to the sheet instead of scrolling. */
+.grabzone { margin: -8px -16px 0; padding: 8px 16px 4px; touch-action: none; cursor: grab; user-select: none; }
 @keyframes rise { from { transform: translateY(100%); } }
 @keyframes fade { from { opacity: 0; } }
 
