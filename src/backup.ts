@@ -1,4 +1,5 @@
 import { db } from './db';
+import { orderByName } from './order';
 import { CURRENCY } from './config';
 import { balances } from './ledger';
 import { rowsToSettings, setSetting } from './settings';
@@ -8,10 +9,10 @@ import type { AccountTag, BudgetTag, Envelope, Settings, Transaction } from './t
  * Raise by one whenever the file's structure changes, and add a migration from the previous
  * version to MIGRATIONS. Import reads formatVersion first, so it must stay the first key.
  */
-export const BACKUP_FORMAT_VERSION = 1;
+export const BACKUP_FORMAT_VERSION = 2;
 
-export interface BackupV1 {
-  formatVersion: 1;
+export interface BackupV2 {
+  formatVersion: 2;
   exportedAt: string;
   currency: string;
   settings: Settings;
@@ -24,9 +25,17 @@ export interface BackupV1 {
 type AnyBackup = { formatVersion: number } & Record<string, unknown>;
 
 /** MIGRATIONS[n] turns a version-n file into a version-(n+1) file. */
-const MIGRATIONS: Record<number, (b: AnyBackup) => AnyBackup> = {};
+const MIGRATIONS: Record<number, (b: AnyBackup) => AnyBackup> = {
+  // Version 2 adds the manual `order` of account tags and envelopes.
+  1: (b) => ({
+    ...b,
+    formatVersion: 2,
+    accountTags: orderByName(b.accountTags as { name: string }[]),
+    envelopes: orderByName(b.envelopes as { name: string }[]),
+  }),
+};
 
-export async function buildBackup(): Promise<BackupV1> {
+export async function buildBackup(): Promise<BackupV2> {
   const [accountTags, budgetTags, envelopes, transactions, settingRows] = await Promise.all([
     db.accountTags.toArray(), db.budgetTags.toArray(), db.envelopes.toArray(),
     db.transactions.toArray(), db.settings.toArray(),
@@ -60,7 +69,7 @@ export async function exportBackup(): Promise<string> {
 }
 
 export interface ParsedBackup {
-  data: BackupV1;
+  data: BackupV2;
   warnings: string[];
 }
 
@@ -83,7 +92,7 @@ export function parseBackup(text: string): ParsedBackup {
     if (!step) throw new Error(`No migration from backup format ${b.formatVersion}.`);
     b = step(b);
   }
-  const data = b as unknown as BackupV1;
+  const data = b as unknown as BackupV2;
   for (const k of ['accountTags', 'budgetTags', 'envelopes', 'transactions'] as const) {
     if (!Array.isArray(data[k])) throw new Error(`The backup has no ${k} list.`);
   }
@@ -98,7 +107,7 @@ export function parseBackup(text: string): ParsedBackup {
 }
 
 /** Replaces every table with the backup's contents in one database transaction. */
-export async function restoreBackup(data: BackupV1): Promise<void> {
+export async function restoreBackup(data: BackupV2): Promise<void> {
   await db.transaction('rw', [db.accountTags, db.budgetTags, db.envelopes, db.transactions, db.settings], async () => {
     await Promise.all([db.accountTags.clear(), db.budgetTags.clear(), db.envelopes.clear(), db.transactions.clear(), db.settings.clear()]);
     await db.accountTags.bulkAdd(data.accountTags);

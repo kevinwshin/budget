@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
+import { orderByName } from './order';
 import type { AccountTag, BudgetTag, Envelope, SettingRow, Transaction } from './types';
 
 export class BudgetDB extends Dexie {
@@ -17,6 +18,15 @@ export class BudgetDB extends Dexie {
       transactions: 'id, date, kind, *envelopeIds',
       settings: 'key',
     });
+    this.version(2).stores({
+      accountTags: 'id, order',
+      envelopes: 'id, type, order',
+    }).upgrade(async (tx) => {
+      for (const name of ['accountTags', 'envelopes']) {
+        const table = tx.table(name);
+        await table.bulkPut(orderByName(await table.toArray()));
+      }
+    });
     this.on('populate', (tx) => {
       const s = starterRows();
       tx.table('accountTags').add(s.accountTag);
@@ -31,8 +41,8 @@ export const db = new BudgetDB();
 function starterRows(): { accountTag: AccountTag; income: Envelope } {
   const accountTagId = newId();
   return {
-    accountTag: { id: accountTagId, name: 'Checking' },
-    income: { id: newId(), name: 'Income', type: 'income', budgetTagId: null, accountTagId, archived: false },
+    accountTag: { id: accountTagId, name: 'Checking', order: 1 },
+    income: { id: newId(), name: 'Income', type: 'income', budgetTagId: null, accountTagId, archived: false, order: 1 },
   };
 }
 

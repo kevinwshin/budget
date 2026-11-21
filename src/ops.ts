@@ -45,10 +45,22 @@ export async function deleteTx(id: Id): Promise<void> {
   await db.transactions.delete(id);
 }
 
-export async function saveEnvelope(e: Omit<Envelope, 'id' | 'archived'> & { id?: Id; archived?: boolean }): Promise<Id> {
+export async function saveEnvelope(e: Omit<Envelope, 'id' | 'archived' | 'order'> & { id?: Id; archived?: boolean }): Promise<Id> {
   const id = e.id ?? newId();
-  await db.envelopes.put({ ...e, id, archived: e.archived ?? false });
+  const existing = e.id ? await db.envelopes.get(e.id) : undefined;
+  // A new envelope, or one moved to another budget tag, goes to the end of its group.
+  const order = existing && existing.budgetTagId === e.budgetTagId ? existing.order : await nextOrder('envelopes');
+  await db.envelopes.put({ ...e, id, archived: e.archived ?? false, order });
   return id;
+}
+
+/** Swaps an active envelope with its neighbor in the same budget tag group. */
+export async function moveEnvelope(id: Id, dir: -1 | 1): Promise<void> {
+  const env = await db.envelopes.get(id);
+  if (!env) return;
+  const group = await db.envelopes.orderBy('order')
+    .filter((e) => !e.archived && e.type !== 'income' && e.budgetTagId === env.budgetTagId).toArray();
+  await swapWithNeighbor('envelopes', group, id, dir);
 }
 
 export async function setArchived(id: Id, archived: boolean): Promise<void> {
@@ -57,19 +69,11 @@ export async function setArchived(id: Id, archived: boolean): Promise<void> {
 
 export async function saveBudgetTag(name: string, id?: Id): Promise<void> {
   if (id) return void (await db.budgetTags.update(id, { name }));
-  const last = await db.budgetTags.orderBy('order').last();
-  await db.budgetTags.add({ id: newId(), name, order: (last?.order ?? 0) + 1 });
+  await db.budgetTags.add({ id: newId(), name, order: await nextOrder('budgetTags') });
 }
 
 export async function moveBudgetTag(id: Id, dir: -1 | 1): Promise<void> {
-  const tags = await db.budgetTags.orderBy('order').toArray();
-  const i = tags.findIndex((t) => t.id === id);
-  const j = i + dir;
-  if (i < 0 || j < 0 || j >= tags.length) return;
-  await db.transaction('rw', db.budgetTags, async () => {
-    await db.budgetTags.update(tags[i].id, { order: tags[j].order });
-    await db.budgetTags.update(tags[j].id, { order: tags[i].order });
-  });
+  await swapWithNeighbor('budgetTags', await db.budgetTags.orderBy('order').toArray(), id, dir);
 }
 
 export async function deleteBudgetTag(id: Id): Promise<void> {
@@ -79,10 +83,34 @@ export async function deleteBudgetTag(id: Id): Promise<void> {
 
 export async function saveAccountTag(name: string, id?: Id): Promise<void> {
   if (id) return void (await db.accountTags.update(id, { name }));
-  await db.accountTags.add({ id: newId(), name });
+  await db.accountTags.add({ id: newId(), name, order: await nextOrder('accountTags') });
+}
+
+export async function moveAccountTag(id: Id, dir: -1 | 1): Promise<void> {
+  await swapWithNeighbor('accountTags', await db.accountTags.orderBy('order').toArray(), id, dir);
 }
 
 export async function deleteAccountTag(id: Id): Promise<void> {
   if (await db.envelopes.filter((e) => e.accountTagId === id).count()) throw new Error('Envelopes still use this tag.');
   await db.accountTags.delete(id);
+}
+
+type OrderedTable = 'envelopes' | 'budgetTags' | 'accountTags';
+type Ordered = { id: Id; order: number };
+
+async function nextOrder(name: OrderedTable): Promise<number> {
+  const last: Ordered | undefined = await db.table(name).orderBy('order').last();
+  return (last?.order ?? 0) + 1;
+}
+
+/** `rows` must be sorted by order; swaps the order of `id` and the row `dir` steps away. */
+async function swapWithNeighbor(name: OrderedTable, rows: Ordered[], id: Id, dir: -1 | 1): Promise<void> {
+  const i = rows.findIndex((r) => r.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= rows.length) return;
+  const table = db.table(name);
+  await db.transaction('rw', table, async () => {
+    await table.update(rows[i].id, { order: rows[j].order });
+    await table.update(rows[j].id, { order: rows[i].order });
+  });
 }

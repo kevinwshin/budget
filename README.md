@@ -10,7 +10,8 @@ server and no account.
   month to month, and an overspent envelope shows red until you cover it.
 - **Tags.** Each envelope has one budget tag, which groups it on the budget screen, and one
   account tag, which matches a real bank account. Account totals are a report: the sum of the
-  envelopes with that tag.
+  envelopes with that tag. In Settings you can reorder budget tags, account tags, and the
+  envelopes within each budget tag.
 - **Transactions.** Expenses can be split across envelopes. Moves between envelopes can be
   one-to-one, one-to-many, many-to-one, or many-to-many, entered in dollars or as percentages of a
   total. Investment envelopes take value updates. Balance adjustments exist for rare corrections.
@@ -77,7 +78,9 @@ npm test
 ```
 
 The tests are in `tests/`. They cover balance and report calculations, transaction validation,
-backup import, money parsing, month arithmetic, and percent splits. `tests/setup.mjs` lets Node
+backup import and restore, Delete all data, money parsing, month arithmetic, and percent splits.
+The restore and Delete all data tests run against an in-memory IndexedDB from
+[fake-indexeddb](https://github.com/dumbmatter/fakeIndexedDB). `tests/setup.mjs` lets Node
 load the app's sources, which import each other without file extensions.
 
 Check types without building:

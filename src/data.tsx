@@ -24,7 +24,7 @@ const Ctx = createContext<Data | null>(null);
 export function DataProvider({ children }: { children: ReactNode }) {
   const envelopes = useLiveQuery(() => db.envelopes.toArray());
   const budgetTags = useLiveQuery(() => db.budgetTags.orderBy('order').toArray());
-  const accountTags = useLiveQuery(() => db.accountTags.toArray());
+  const accountTags = useLiveQuery(() => db.accountTags.orderBy('order').toArray());
   const txs = useLiveQuery(() => db.transactions.toArray());
   const settingRows = useLiveQuery(() => db.settings.toArray());
 
@@ -33,11 +33,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const envMap = new Map(envelopes.map((e) => [e.id, e]));
     const btMap = new Map(budgetTags.map((t) => [t.id, t]));
     const atMap = new Map(accountTags.map((t) => [t.id, t]));
-    const sortedAccounts = [...accountTags].sort((a, b) => a.name.localeCompare(b.name));
     return {
       envelopes,
       budgetTags,
-      accountTags: sortedAccounts,
+      accountTags,
       txs,
       settings: rowsToSettings(settingRows),
       balance: balances(txs),
@@ -58,12 +57,12 @@ export function useData(): Data {
   return v;
 }
 
-/** Active envelopes grouped by budget tag in tag order; envelopes within a group by name. */
+/** Envelopes grouped by budget tag, both in their set order. */
 export function groupByBudgetTag(d: Data, list: Envelope[]): { tag: BudgetTag; items: Envelope[] }[] {
   return d.budgetTags
     .map((tag) => ({
       tag,
-      items: list.filter((e) => e.budgetTagId === tag.id).sort((a, b) => a.name.localeCompare(b.name)),
+      items: list.filter((e) => e.budgetTagId === tag.id).sort((a, b) => a.order - b.order),
     }))
     .filter((g) => g.items.length);
 }

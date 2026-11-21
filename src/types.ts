@@ -3,6 +3,7 @@ export type Id = string;
 export interface AccountTag {
   id: Id;
   name: string;
+  order: number;
 }
 
 export interface BudgetTag {
@@ -21,6 +22,8 @@ export interface Envelope {
   budgetTagId: Id | null;
   accountTagId: Id;
   archived: boolean;
+  /** Position within the envelope's budget tag group. */
+  order: number;
 }
 
 export type TxKind = 'expense' | 'income' | 'transfer' | 'revaluation' | 'adjustment';

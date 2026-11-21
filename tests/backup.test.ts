@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseBackup } from '../src/backup.ts';
+import { BACKUP_FORMAT_VERSION, parseBackup } from '../src/backup.ts';
 import { CURRENCY } from '../src/config.ts';
 
 const valid = (patch: Record<string, unknown> = {}) => JSON.stringify({
@@ -16,7 +16,7 @@ test('import refuses files it cannot restore safely', () => {
   const cases: [string, string][] = [
     ['not JSON', 'budget export'],
     ['no format version', JSON.stringify({ envelopes: [] })],
-    ['newer format than the app reads', valid({ formatVersion: 2 })],
+    ['newer format than the app reads', valid({ formatVersion: BACKUP_FORMAT_VERSION + 1 })],
     ['missing transaction list', valid({ transactions: undefined })],
   ];
   for (const [label, text] of cases) assert.throws(() => parseBackup(text), Error, label);
