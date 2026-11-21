@@ -19,7 +19,8 @@ export function ReportsScreen() {
   const [report, setReport] = useState<Report>('month');
   const [acct, setAcct] = useState<Id | 'all'>('all');
   const inAcct = (e: Envelope | undefined) => !!e && (acct === 'all' || e.accountTagId === acct);
-  const include = (id: Id) => inAcct(d.env(id));
+  const [excluded, setExcluded] = useState<Set<Id>>(() => new Set());
+  const include = (id: Id) => inAcct(d.env(id)) && !excluded.has(id);
   const months = lastMonths(nav.month, 6);
   const pool = d.envelopes.filter((e) => inAcct(e) && e.type !== 'income');
 
@@ -60,21 +61,61 @@ export function ReportsScreen() {
         byTag.set(name, (byTag.get(name) ?? 0) - l.amount);
       }
     }
-    body = <div className="card"><b>Spending by budget tag</b><HBars rows={[...byTag].filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]).map(([label, v]) => ({ label, values: [v] }))} colors={['var(--primary)']} /></div>;
+    body = <div className="card"><b>Spending by budget tag</b><HBars rows={[...byTag].filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]).map(([label, v]) => ({ label, values: [v] }))} colors={['var(--chart-1)']} /></div>;
   } else if (report === 'ivs') {
     const inc = months.map((m) => kindTotal(d.txs, m, 'income', include));
     const spend = months.map((m) => -kindTotal(d.txs, m, 'expense', include) || 0);
+    // Only envelopes with income or spending in the window can change the chart.
+    const used = new Set<Id>();
+    for (const t of d.txs) {
+      if ((t.kind === 'income' || t.kind === 'expense') && months.some((m) => t.date.startsWith(m))) for (const l of t.lines) used.add(l.envelopeId);
+    }
+    const candidates = d.envelopes.filter((e) => used.has(e.id) && inAcct(e));
+    const groups = [
+      { gid: 'income', name: 'Income', items: candidates.filter((e) => e.type === 'income') },
+      ...groupByBudgetTag(d, candidates.filter((e) => e.type !== 'income')).map((grp) => ({ gid: grp.tag.id, name: grp.tag.name, items: grp.items })),
+    ].filter((grp) => grp.items.length);
+    const toggle = (ids: Id[], on: boolean) => {
+      const next = new Set(excluded);
+      for (const id of ids) if (on) next.delete(id); else next.add(id);
+      setExcluded(next);
+    };
     body = (
       <div className="card"><b>Income vs spending</b>
-        <HBars rows={months.map((m, i) => ({ label: monthShort(m), values: [inc[i], spend[i]] })).reverse()} colors={['var(--primary)', 'var(--chart-2)']} />
-        <div className="legend"><span><i style={{ background: 'var(--primary)' }} />Income</span><span><i style={{ background: 'var(--chart-2)' }} />Spending</span></div>
+        <Line labels={months.map(monthShort)} height={200} series={[
+          { name: 'Income', values: inc, color: 'var(--chart-1)' },
+          { name: 'Spending', values: spend, color: 'var(--chart-2)', dashed: true },
+        ]} />
+        <div className="legend"><span><i className="ln" style={{ borderColor: 'var(--chart-1)' }} />Income</span><span><i className="ln dashed" style={{ borderColor: 'var(--chart-2)' }} />Spending</span></div>
+        <div className="picker">
+          <div className="note">{candidates.filter((e) => !excluded.has(e.id)).length} of {candidates.length} envelopes included</div>
+          {groups.map((grp) => {
+            const onCount = grp.items.filter((e) => !excluded.has(e.id)).length;
+            const allOn = onCount === grp.items.length;
+            const state = allOn ? 'All' : onCount === 0 ? 'None' : `${onCount} of ${grp.items.length}`;
+            return (
+              <div key={grp.gid} className="pickgroup">
+                <div className="ghead">
+                  <span>{grp.name}</span>
+                  <button className="btn text" aria-label={`${grp.name}: ${state} included. ${allOn ? 'Exclude' : 'Include'} all`} onClick={() => toggle(grp.items.map((e) => e.id), !allOn)}>{state}</button>
+                </div>
+                <div className="chips wrap">
+                  {grp.items.map((e) => {
+                    const on = !excluded.has(e.id);
+                    return <button key={e.id} className={`chip ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => toggle([e.id], !on)}>{e.name}</button>;
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   } else if (report === 'inv') {
-    const inv = pool.filter((e) => e.type === 'investment');
+    const inv = groupByBudgetTag(d, pool.filter((e) => e.type === 'investment')).flatMap((g) => g.items);
     body = inv.length ? inv.map((e) => (
       <div className="card" key={e.id}><b>{e.name}</b>
-        <Line labels={months.map(monthShort)} values={months.map((m) => balancesAtMonthEnd(d.txs, m).get(e.id) ?? 0)} />
+        <Line labels={months.map(monthShort)} height={200} series={[{ values: months.map((m) => balancesAtMonthEnd(d.txs, m).get(e.id) ?? 0), color: 'var(--chart-1)' }]} />
       </div>
     )) : <div className="empty">No investment envelopes.</div>;
   } else {
@@ -109,7 +150,7 @@ export function ReportsScreen() {
         </select>
       </div>
       <div className="content">
-        <div className="chips">
+        <div className="chips wrap">
           {REPORTS.map(([k, l]) => <button key={k} className={`chip ${report === k ? 'on' : ''}`} onClick={() => setReport(k)}>{l}</button>)}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>

@@ -15,7 +15,7 @@ export function EnvelopeScreen({ id }: { id: Id }) {
   const bal = d.balance.get(id) ?? 0;
   const activity = sortNewest(d.txs.filter((t) => t.envelopeIds.includes(id)));
   const months = lastMonths(monthOf(today()), 6);
-  const history = e.type === 'investment' ? months.map((m) => balancesAtMonthEnd(d.txs, m).get(id) ?? 0) : [];
+  const history = months.map((m) => balancesAtMonthEnd(d.txs, m).get(id) ?? 0);
   const kind = e.type === 'income' ? 'Income' : d.budgetTag(e.budgetTagId)?.name;
 
   return (
@@ -34,15 +34,13 @@ export function EnvelopeScreen({ id }: { id: Id }) {
           {bal < 0 && d.income && (
             <button className="btn" onClick={() => nav.push({ sheet: { type: 'move', title: 'Cover overspending', from: [{ id: d.income!.id, amount: 0 }], to: [{ id, amount: -bal }] } })}>Cover overspending</button>
           )}
-          <button className={`btn ${bal < 0 ? 'tonal' : ''}`} onClick={() => nav.push({ sheet: { type: 'move', from: [{ id, amount: 0 }], to: [{ id: '', amount: 0 }] } })}>Move money</button>
+          <button className={`btn ${bal < 0 ? 'tonal' : ''}`} onClick={() => nav.push({ sheet: { type: 'move', from: [{ id, amount: 0 }], to: [{ id: '', amount: 0 }] } })}>Transfer</button>
           {e.type === 'investment' && <button className="btn tonal" onClick={() => nav.push({ sheet: { type: 'value', envId: id } })}>Update value</button>}
         </div>
-        {e.type === 'investment' && (
-          <div className="card">
-            <Line labels={months.map(monthShort)} values={history} />
-            <div className="note">Value at the end of each month.</div>
-          </div>
-        )}
+        <div className="card">
+          <Line labels={months.map(monthShort)} series={[{ values: history, color: 'var(--chart-1)' }]} />
+          <div className="note">{e.type === 'investment' ? 'Value' : 'Balance'} at the end of each month.</div>
+        </div>
         <div className="dayhead">Activity</div>
         {activity.length ? (
           <div className="rows">{activity.map((t) => <TxRow key={t.id} t={t} focus={id} showDate />)}</div>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { formatMoney } from '../money';
 
 const W = 340;
@@ -32,18 +33,53 @@ export function HBars({ rows, colors }: { rows: { label: string; values: number[
   );
 }
 
-export function Line({ labels, values }: { labels: string[]; values: number[] }) {
-  const H = 120;
-  const lo = Math.min(...values);
-  const hi = Math.max(...values);
+export interface LineSeries {
+  /** Shown in the readout; a lone series may leave it out. */
+  name?: string;
+  values: number[];
+  color: string;
+  dashed?: boolean;
+}
+
+/**
+ * Line chart on one shared y-scale that starts at 0. A readout above the chart shows the
+ * selected point's values; tapping a column selects it, and the newest point starts selected.
+ */
+export function Line({ labels, series, height = 120 }: { labels: string[]; series: LineSeries[]; height?: number }) {
+  const [sel, setSel] = useState(labels.length - 1);
+  const H = height;
+  const all = series.flatMap((s) => s.values);
+  const lo = Math.min(0, ...all);
+  const hi = Math.max(0, ...all);
   const span = hi - lo || 1;
-  const step = (W - 30) / Math.max(values.length - 1, 1);
-  const pts = values.map((v, i) => [15 + i * step, H - ((v - lo) / span) * (H - 10) - 5] as const);
+  const top = 16;
+  const bottom = H - 5;
+  const step = (W - 30) / Math.max(labels.length - 1, 1);
+  const x = (i: number) => 15 + i * step;
+  const y = (v: number) => bottom - ((v - lo) / span) * (bottom - top);
+  const readout = series.length === 1 && !series[0].name
+    ? formatMoney(series[0].values[sel])
+    : series.map((s) => `${s.name} ${formatMoney(s.values[sel])}`).join(' · ');
   return (
-    <svg viewBox={`0 0 ${W} ${H + 18}`} width="100%">
-      <polyline points={pts.map((p) => p.join(',')).join(' ')} fill="none" stroke="var(--primary)" strokeWidth={2.5} />
-      {pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={3.5} fill="var(--primary)" />)}
-      {labels.map((l, i) => <text key={l + i} x={5 + i * step} y={H + 14}>{l}</text>)}
-    </svg>
+    <>
+      <div className="readout">{labels[sel]}: {readout}</div>
+      <svg viewBox={`0 0 ${W} ${H + 18}`} width="100%">
+        <line x1={0} x2={W} y1={top} y2={top} stroke="var(--line)" />
+        <line x1={0} x2={W} y1={y(0)} y2={y(0)} stroke="var(--line)" />
+        <text x={0} y={top - 5}>{formatMoney(hi)}</text>
+        <line x1={x(sel)} x2={x(sel)} y1={top} y2={bottom} stroke="var(--line)" strokeWidth={2} />
+        {series.map((s, k) => (
+          <g key={k}>
+            <polyline points={s.values.map((v, i) => `${x(i)},${y(v)}`).join(' ')} fill="none" stroke={s.color} strokeWidth={2.5} strokeDasharray={s.dashed ? '6 4' : undefined} />
+            {s.values.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r={3.5} fill={s.color} />)}
+          </g>
+        ))}
+        {labels.map((l, i) => <text key={l + i} x={5 + i * step} y={H + 14}>{l}</text>)}
+        {labels.map((_, i) => (
+          <rect key={'hit' + i} x={x(i) - step / 2} y={0} width={step} height={H + 18} fill="transparent"
+            onPointerEnter={() => setSel(i)} onClick={() => setSel(i)} />
+        ))}
+      </svg>
+    </>
   );
 }
