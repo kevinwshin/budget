@@ -129,6 +129,7 @@ input, select, textarea { font: inherit; color: var(--text); }
 /* Sits on the sheet's title line; positioned against .sheet, outside the drag zone. */
 .unitswitch { position: absolute; top: 24px; right: 16px; display: flex; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .unitswitch button { border: 0; background: none; font-size: 12px; padding: 2px 10px; color: var(--muted); }
+.unitswitch.inline { position: static; }
 .unitswitch button.on { background: var(--surface-2); color: var(--text); font-weight: 600; }
 .mvside { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--muted); padding: 8px 2px 6px; }
 .mvsum { background: var(--surface-2); border-radius: 12px; padding: 10px 12px; font-size: 13px; margin: 8px 0 12px; }
