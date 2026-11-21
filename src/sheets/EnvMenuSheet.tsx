@@ -16,8 +16,8 @@ export function EnvMenuSheet({ envId }: { envId: Id }) {
     if (bal !== 0) {
       nav.replaceTop({ dialog: {
         title: 'Cannot archive yet',
-        body: `${e.name} holds ${formatMoney(bal)}. Move the balance to another envelope first.`,
-        confirm: 'Move money',
+        body: `${e.name} holds ${formatMoney(bal)}. Transfer the balance to another envelope first.`,
+        confirm: 'Transfer',
         onConfirm: () => nav.replaceTop({ sheet: { type: 'move', from: [{ id: envId, amount: 0 }], to: [{ id: '', amount: 0 }] } }),
       } });
       return;

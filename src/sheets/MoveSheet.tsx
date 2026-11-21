@@ -32,7 +32,7 @@ export function MoveSheet({ title, from, to, edit }: { title?: string; from: Lin
   const [sides, setSides] = useState<Record<Side, Draft[]>>(init);
   const [mode, setMode] = useState<Mode>('dollars');
   const [totalText, setTotalText] = useState('');
-  const [heading, setHeading] = useState(edit ? 'Edit transfer' : title ?? 'Move money');
+  const [heading, setHeading] = useState(edit ? 'Edit transfer' : title ?? 'Transfer');
   const [date, setDate] = useState(edit?.date ?? today());
   const [note, setNote] = useState(edit?.note ?? '');
 
@@ -104,7 +104,7 @@ export function MoveSheet({ title, from, to, edit }: { title?: string; from: Lin
       lines: all.map((l) => ({ envelopeId: l.id, amount: l.amt })),
     });
     nav.pop();
-    nav.toast(edit ? 'Transfer updated' : 'Moved. Transfer recorded.');
+    nav.toast(edit ? 'Transfer updated' : 'Transfer recorded.');
   };
 
   const side = (s: Side, label: string) => {
@@ -148,11 +148,11 @@ export function MoveSheet({ title, from, to, edit }: { title?: string; from: Lin
         <button className={mode === 'percent' ? 'on' : ''} aria-pressed={mode === 'percent'} aria-label="Percent" onClick={() => switchMode('percent')}>%</button>
       </div>
       {mode === 'percent' && (
-        <Field label="Total to move"><input inputMode="decimal" placeholder="0.00" value={totalText} onChange={(e) => setTotalText(e.target.value)} /></Field>
+        <Field label="Total to transfer"><input inputMode="decimal" placeholder="0.00" value={totalText} onChange={(e) => setTotalText(e.target.value)} /></Field>
       )}
       {side('from', 'From')}
       <div className="swap">
-        <button className="iconbtn" aria-label="Swap From and To" onClick={() => { setSides({ from: sides.to, to: sides.from }); if (!edit) setHeading('Move money'); }}>⇅</button>
+        <button className="iconbtn" aria-label="Swap From and To" onClick={() => { setSides({ from: sides.to, to: sides.from }); if (!edit) setHeading('Transfer'); }}>⇅</button>
       </div>
       {side('to', 'To')}
       <div className="mvsum">
@@ -162,7 +162,7 @@ export function MoveSheet({ title, from, to, edit }: { title?: string; from: Lin
       </div>
       <Field label="Date"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
       <Field label="Note (optional)"><input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
-      <button className="btn block" disabled={problems.length > 0 || total('to') <= 0} onClick={() => void save()}>{edit ? 'Save' : 'Move'}</button>
+      <button className="btn block" disabled={problems.length > 0 || total('to') <= 0} onClick={() => void save()}>{edit ? 'Save' : 'Transfer'}</button>
     </SheetFrame>
   );
 }

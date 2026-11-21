@@ -12,7 +12,7 @@ server and no account.
   account tag, which matches a real bank account. Account totals are a report: the sum of the
   envelopes with that tag. In Settings you can reorder budget tags, account tags, and the
   envelopes within each budget tag.
-- **Transactions.** Expenses can be split across envelopes. Moves between envelopes can be
+- **Transactions.** Expenses can be split across envelopes. Transfers between envelopes can be
   one-to-one, one-to-many, many-to-one, or many-to-many, entered in dollars or as percentages of a
   total. Investment envelopes take value updates. Balance adjustments exist for rare corrections.
 - **Reports.** The month's in and out for each envelope, spending by budget tag, income compared
@@ -114,5 +114,5 @@ menu. The app's data belongs to that URL, so export a backup before you move to 
 | `src/backup.ts`, `src/settings.ts` | Backup export and import, and settings |
 | `src/nav.tsx`, `src/App.tsx` | Navigation, which ties pages and sheets to the browser history and the Android back button |
 | `src/screens/` | Budget, envelope, transactions, reports, settings, and manage screens |
-| `src/sheets/` | Add, move money, value update, adjustment, and edit sheets |
+| `src/sheets/` | Add, transfer, value update, adjustment, and edit sheets |
 | `tests/` | Tests run by `npm test` |
