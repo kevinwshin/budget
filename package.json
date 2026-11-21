@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "icons": "node scripts/make-icons.mjs"
+    "icons": "node scripts/make-icons.mjs",
+    "test": "node --import ./tests/setup.mjs --test tests/*.test.ts"
   },
   "dependencies": {
     "dexie": "^4.4.7",
