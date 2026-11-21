@@ -42,8 +42,9 @@ interface Nav {
   replaceTop: (l: Layer) => void;
   /** Closes the top layer through browser history, so the Android back button and the UI agree. */
   pop: (count?: number) => void;
-  toast: (msg: string) => void;
-  toastMsg: string | null;
+  toast: (msg: string, kind?: 'info' | 'error') => void;
+  toastMsg: { text: string; kind: 'info' | 'error' } | null;
+  dismissToast: () => void;
 }
 
 const Ctx = createContext<Nav | null>(null);
@@ -57,10 +58,20 @@ export function NavProvider({ initialMonth, children }: { initialMonth: string; 
   const [tab, setTab] = useState<Tab>('budget');
   const [month, setMonth] = useState(initialMonth);
   const [layers, setLayers] = useState<Layer[]>([]);
-  const [toastMsg, setToast] = useState<string | null>(null);
+  const [toastMsg, setToast] = useState<Nav['toastMsg']>(null);
   const depth = useRef(0);
   const pendingTab = useRef<Tab | null>(null);
   const toastTimer = useRef<number>(undefined);
+  const rewound = useRef(false);
+
+  useEffect(() => {
+    // A reload with a layer open keeps that layer's history entry while the app starts with no
+    // layers. Step back to the base entry so the first Back press is not spent on a stale entry.
+    // The ref stops React's development-mode second effect run from stepping back twice.
+    const stale = history.state?.depth;
+    if (!rewound.current && typeof stale === 'number' && stale > 0) history.go(-stale);
+    rewound.current = true;
+  }, []);
 
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
@@ -75,6 +86,30 @@ export function NavProvider({ initialMonth, children }: { initialMonth: string; 
     addEventListener('popstate', onPop);
     return () => removeEventListener('popstate', onPop);
   }, []);
+
+  // Save buttons start their async work without awaiting it, so a failed save surfaces only
+  // as an unhandled rejection. Showing those here keeps a failure from looking like a dead button.
+  useEffect(() => {
+    // Dexie appends the browser's own error on a second line; the first line says it already.
+    const show = (reason: unknown) => {
+      const text = reason instanceof Error ? reason.message : String(reason);
+      showToast(`Error: ${text.split('\n')[0].trim()}`, 'error');
+    };
+    const onRejection = (e: PromiseRejectionEvent) => show(e.reason);
+    const onError = (e: ErrorEvent) => show(e.error ?? e.message);
+    addEventListener('unhandledrejection', onRejection);
+    addEventListener('error', onError);
+    return () => {
+      removeEventListener('unhandledrejection', onRejection);
+      removeEventListener('error', onError);
+    };
+  }, []);
+
+  function showToast(text: string, kind: 'info' | 'error' = 'info') {
+    setToast({ text, kind });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), kind === 'error' ? 6000 : 2200);
+  }
 
   const nav: Nav = {
     tab, month, setMonth, layers, toastMsg,
@@ -91,10 +126,10 @@ export function NavProvider({ initialMonth, children }: { initialMonth: string; 
     },
     replaceTop: (l) => setLayers((prev) => [...prev.slice(0, -1), l]),
     pop: (count = 1) => history.go(-Math.min(count, depth.current)),
-    toast: (msg) => {
-      setToast(msg);
+    toast: showToast,
+    dismissToast: () => {
       clearTimeout(toastTimer.current);
-      toastTimer.current = window.setTimeout(() => setToast(null), 2200);
+      setToast(null);
     },
   };
   return <Ctx.Provider value={nav}>{children}</Ctx.Provider>;

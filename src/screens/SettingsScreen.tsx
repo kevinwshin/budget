@@ -18,7 +18,7 @@ export function SettingsScreen() {
     try {
       nav.toast(`Saved ${await exportBackup()}`);
     } catch (e) {
-      nav.toast(`Export failed: ${(e as Error).message}`);
+      nav.toast(`Export failed: ${(e as Error).message}`, 'error');
     }
   };
 

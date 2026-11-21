@@ -59,7 +59,11 @@ function Shell() {
       </nav>
       {top && 'sheet' in top && <SheetView key={nav.layers.length} sheet={top.sheet} />}
       {top && 'dialog' in top && <DialogView d={top.dialog} />}
-      {nav.toastMsg && <div className="toast" role="status">{nav.toastMsg}</div>}
+      {nav.toastMsg && (
+        <div className={`toast ${nav.toastMsg.kind}`} role={nav.toastMsg.kind === 'error' ? 'alert' : 'status'} onClick={nav.dismissToast}>
+          {nav.toastMsg.text}
+        </div>
+      )}
     </div>
   );
 }
