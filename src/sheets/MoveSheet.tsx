@@ -4,6 +4,7 @@ import { useNav, type LineDraft } from '../nav';
 import { today } from '../dates';
 import { formatMoney, parseMoney, toInput } from '../money';
 import { saveTx } from '../ops';
+import { fmtPercent, isHundred, parsePercent, percentsFromAmounts, splitByPercent } from '../percent';
 import { EnvelopeSelect, Field, SheetFrame } from '../ui';
 import type { Id, Transaction } from '../types';
 
@@ -13,27 +14,6 @@ type Draft = { id: Id; text: string };
 
 const SIDES: Side[] = ['from', 'to'];
 const toDrafts = (ls: LineDraft[]): Draft[] => ls.map((l) => ({ id: l.id, text: toInput(l.amount) }));
-const parsePercent = (text: string) => Number(text.replace(/[^0-9.]/g, '')) || 0;
-const fmtPercent = (p: number) => String(Math.round(p * 100) / 100);
-const isHundred = (sum: number) => Math.abs(sum - 100) < 1e-6;
-
-/**
- * Splits `total` by percentages. Each share is rounded down; the leftover units go to the
- * shares with the largest dropped fractions, so the shares add up exactly when the
- * percentages add up to 100.
- */
-function splitByPercent(total: number, percents: number[]): number[] {
-  const exact = percents.map((p) => (total * p) / 100);
-  const out = exact.map(Math.floor);
-  let left = Math.round(exact.reduce((a, b) => a + b, 0)) - out.reduce((a, b) => a + b, 0);
-  const order = exact.map((x, i) => [x - Math.floor(x), i] as const).sort((a, b) => b[0] - a[0]);
-  for (const [, i] of order) {
-    if (left <= 0) break;
-    out[i] += 1;
-    left -= 1;
-  }
-  return out;
-}
 
 /**
  * Any number of sources and destinations, entered in dollars or as percentages of one total.
@@ -78,9 +58,10 @@ export function MoveSheet({ title, from, to, edit }: { title?: string; from: Lin
     for (const s of SIDES) {
       if (!isHundred(pctSum(s))) problems.push(`${s === 'from' ? 'Sources' : 'Destinations'} add up to ${fmtPercent(pctSum(s))}%, not 100%.`);
     }
-  } else if (total('from') !== total('to')) {
-    problems.push(`From and To differ by ${formatMoney(Math.abs(total('from') - total('to')))}.`);
   }
+  // In percent mode, report a dollar gap only when no 100% message already explains it.
+  const gap = total('from') - total('to');
+  if (gap !== 0 && (mode === 'dollars' || !problems.length)) problems.push(`From and To differ by ${formatMoney(Math.abs(gap))}.`);
   if (chosen.length < all.length) problems.push('Choose an envelope on every line.');
   if (new Set(chosen.map((l) => l.id)).size < chosen.length) problems.push('An envelope can appear only once.');
   if (all.some((l) => l.amt === 0) && total('to') > 0) problems.push(mode === 'percent' ? 'Every line needs a percentage.' : 'Every line needs an amount.');
@@ -102,9 +83,11 @@ export function MoveSheet({ title, from, to, edit }: { title?: string; from: Lin
     if (next === 'percent') {
       const t = total('to');
       setTotalText(toInput(t));
+      const fromPct = percentsFromAmounts(amounts.from);
+      const toPct = percentsFromAmounts(amounts.to);
       setSides({
-        from: sides.from.map((l, i) => ({ ...l, text: t ? fmtPercent((amounts.from[i] / t) * 100) : '' })),
-        to: sides.to.map((l, i) => ({ ...l, text: t ? fmtPercent((amounts.to[i] / t) * 100) : '' })),
+        from: sides.from.map((l, i) => ({ ...l, text: fromPct[i] })),
+        to: sides.to.map((l, i) => ({ ...l, text: toPct[i] })),
       });
     } else {
       setSides({
