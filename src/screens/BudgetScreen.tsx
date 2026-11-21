@@ -28,7 +28,7 @@ export function BudgetScreen() {
           <div className="banner warn"><span>{last ? `Last backup was ${daysSince(last)} days ago.` : 'You have no backup yet.'}</span>
             <button onClick={() => nav.goTab('settings')}>Back up</button></div>
         )}
-        {income && (
+        {income && b(income) !== 0 && (
           <div className="card rta">
             <div style={{ flex: 1 }}>
               <div className="amt">{formatMoney(b(income))}</div>
